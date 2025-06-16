@@ -12,6 +12,8 @@ public class ClientSwingUI extends JFrame {
     private char currentTurn = 'X';
     private Board board = new Board();
     private MoveListener moveListener;
+    private String pseudo = "";
+    private String adversaire = "";
 
     public interface MoveListener {
         void onMove(int row, int col);
@@ -56,9 +58,21 @@ public class ClientSwingUI extends JFrame {
         setTitle("Morpion - "+(turn=='-'?"Fin de partie":("Tour de : "+turn))+" - Vous êtes "+myMark);
     }
 
+    public void setPseudo(String pseudo) {
+        this.pseudo = pseudo;
+        updateTitle();
+    }
+    public void setAdversaire(String adv) {
+        this.adversaire = adv;
+        updateTitle();
+    }
+    private void updateTitle() {
+        setTitle("Morpion - "+pseudo+(!adversaire.isEmpty()?" vs "+adversaire:"")+" - Vous êtes "+myMark);
+    }
+
     public void setMyMark(char mark) {
         this.myMark = mark;
-        setTitle("Morpion - Vous êtes " + mark);
+        updateTitle();
     }
 
     public void showMessage(String msg) {

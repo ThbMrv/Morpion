@@ -2,6 +2,7 @@ package client;
 
 import common.Board;
 import common.Message;
+import common.Move;
 
 import java.io.*;
 import java.net.Socket;
@@ -16,6 +17,8 @@ public class TicTacToeClient {
     private volatile char myMark = '?';
     private volatile char currentTurn = 'X';
     private volatile boolean gameEnded = false;
+    private String pseudo = "";
+    private String adversaire = "";
 
     public static void main(String[] args) throws IOException {
         new TicTacToeClient().startGui();
@@ -24,12 +27,18 @@ public class TicTacToeClient {
     // Version graphique uniquement
     private void startGui() throws IOException {
         ClientSwingUI ui = new ClientSwingUI();
+        AccueilUI accueil = AccueilUI.showDialog(ui);
+        if (!accueil.isValidated()) System.exit(0);
+        pseudo = accueil.getPseudo();
+        char symboleChoisi = accueil.getSymbole();
+        ui.setPseudo(pseudo);
         ui.setVisible(true);
         try (Socket socket = new Socket(HOST, PORT);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
-            // Thread d’écoute serveur
+            out.println("PSEUDO:" + pseudo + ":" + symboleChoisi);
+
             Thread listener = new Thread(() -> {
                 try {
                     String line;
@@ -49,17 +58,20 @@ public class TicTacToeClient {
                 out.println(Message.move(r, c));
             });
 
-            // Boucle d'attente (empêche la fermeture de la fenêtre)
             while (!gameEnded) {
                 try { Thread.sleep(200); } catch (InterruptedException e) {}
             }
         }
     }
 
-    // Gestion des messages pour l'UI graphique
     private void handleServerMessageGui(String line, ClientSwingUI ui, PrintWriter out) {
         if (line.startsWith("START:")) {
-            myMark = line.charAt(6);
+            String[] parts = line.split(":");
+            myMark = parts[1].charAt(0);
+            if (parts.length > 2) {
+                adversaire = parts[2];
+                ui.setAdversaire(adversaire);
+            }
             ui.setMyMark(myMark);
         }
         else if (line.startsWith("UPDATE:")) {
@@ -74,13 +86,11 @@ public class TicTacToeClient {
             String msg;
             if (res.startsWith("WIN:")) {
                 char winner = res.charAt(4);
-                if (winner == myMark) {
-                    msg = "Bravo, vous avez gagné !";
-                } else {
-                    msg = "Vous avez perdu.";
-                }
+                String winnerPseudo = (winner == myMark) ? pseudo : adversaire;
+                String loserPseudo = (winner == myMark) ? adversaire : pseudo;
+                msg = "Victoire de : " + winnerPseudo + "\nDéfaite de : " + loserPseudo;
             } else if (res.equals("DRAW")) {
-                msg = "Match nul !";
+                msg = "Match nul entre " + pseudo + (adversaire.isEmpty() ? "" : (" et " + adversaire));
             } else {
                 msg = "Partie terminée → " + res;
             }

@@ -15,6 +15,10 @@ public class Message {
         return "START:" + yourMark;
     }
 
+    public static String start(String info) {
+        return "START:" + info;
+    }
+
     public static String end(String result) {
         return "END:" + result;        // WIN:X, WIN:O ou DRAW
     }

@@ -1,8 +1,8 @@
 package server;
 
+import common.Message;
 import common.Board;
 import common.Move;
-import common.Message;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -41,6 +41,13 @@ public class TicTacToeServer {
         for (PlayerHandler ph : players) {
             ph.send(Message.start(ph.getMark()));
         }
+        // Après la connexion des deux joueurs, envoie le pseudo adverse au premier joueur
+        if (players.size() == 2) {
+            PlayerHandler p1 = players.get(0);
+            PlayerHandler p2 = players.get(1);
+            p1.send(Message.start(p1.getMark() + ":" + p2.getPseudo()));
+            p2.send(Message.start(p2.getMark() + ":" + p1.getPseudo()));
+        }
         broadcast(Message.update(board.serialize(), currentTurn));
     }
 
@@ -71,5 +78,18 @@ public class TicTacToeServer {
 
     public void broadcast(String msg) {
         for (PlayerHandler p : players) p.send(msg);
+    }
+
+    public boolean isSymboleDispo(char symbole) {
+        for (PlayerHandler ph : players) {
+            if (ph.getMark() == symbole) return false;
+        }
+        return true;
+    }
+    public String getAdversairePseudo(PlayerHandler me) {
+        for (PlayerHandler ph : players) {
+            if (ph != me) return ph.getPseudo();
+        }
+        return null;
     }
 }
