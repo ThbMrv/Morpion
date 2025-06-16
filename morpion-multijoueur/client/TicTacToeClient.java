@@ -2,14 +2,12 @@ package client;
 
 import common.Board;
 import common.Message;
-import common.Move;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.Scanner;
 
 
-/** Client console : envoie les coups et affiche le plateau. */
+/** Client graphique : envoie les coups et affiche le plateau dans une fenêtre Swing. */
 public class TicTacToeClient {
     private static final String HOST = "localhost";
     private static final int PORT = 5001;
@@ -20,86 +18,78 @@ public class TicTacToeClient {
     private volatile boolean gameEnded = false;
 
     public static void main(String[] args) throws IOException {
-        new TicTacToeClient().start();
+        new TicTacToeClient().startGui();
     }
 
-    private void start() throws IOException {
+    // Version graphique uniquement
+    private void startGui() throws IOException {
+        ClientSwingUI ui = new ClientSwingUI();
+        ui.setVisible(true);
         try (Socket socket = new Socket(HOST, PORT);
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             Scanner scanner = new Scanner(System.in)) {
+             PrintWriter out = new PrintWriter(socket.getOutputStream(), true)) {
 
             // Thread d’écoute serveur
             Thread listener = new Thread(() -> {
                 try {
                     String line;
                     while ((line = in.readLine()) != null) {
-                        handleServerMessage(line);
+                        handleServerMessageGui(line, ui, out);
                     }
                 } catch (IOException e) {
-                    System.out.println("[CLIENT] Connexion perdue.");
+                    ui.showMessage("Connexion perdue.");
                     System.exit(0);
                 }
             });
             listener.setDaemon(true);
             listener.start();
 
-            // Boucle d’entrée utilisateur
+            ui.setMoveListener((r, c) -> {
+                if (myMark == '?' || currentTurn != myMark) return;
+                out.println(Message.move(r, c));
+            });
+
+            // Boucle d'attente (empêche la fermeture de la fenêtre)
             while (!gameEnded) {
-                if (myMark == '?' || currentTurn != myMark) {
-                    try { Thread.sleep(200); } catch (InterruptedException e) {}
-                    continue;
-                }
-                System.out.print("(" + myMark + ") Entrer ligne colonne (0-2 0-2) : ");
-                String input = scanner.nextLine();
-                String[] parts = input.trim().split("\\s+");
-                if (parts.length != 2) {
-                    System.out.println("[CLIENT] Merci d'entrer deux nombres séparés par un espace.");
-                    continue;
-                }
-                try {
-                    int r = Integer.parseInt(parts[0]);
-                    int c = Integer.parseInt(parts[1]);
-                    out.println(Message.move(r, c));
-                } catch (NumberFormatException e) {
-                    System.out.println("[CLIENT] Merci d'entrer des nombres valides.");
-                }
+                try { Thread.sleep(200); } catch (InterruptedException e) {}
             }
         }
     }
 
-    /* Parse les messages */
-    private void handleServerMessage(String line) {
+    // Gestion des messages pour l'UI graphique
+    private void handleServerMessageGui(String line, ClientSwingUI ui, PrintWriter out) {
         if (line.startsWith("START:")) {
             myMark = line.charAt(6);
-            System.out.println("[CLIENT] Vous jouez '" + myMark + "'.");
+            ui.setMyMark(myMark);
         }
         else if (line.startsWith("UPDATE:")) {
             String[] p = line.split(":");
             board = Board.deserialize(p[1]);
             currentTurn = p[2].charAt(0);
-            ClientUI.render(board, currentTurn);
+            ui.updateBoard(board, currentTurn);
         }
         else if (line.startsWith("END:")) {
             String res = line.substring(4);
             gameEnded = true;
+            String msg;
             if (res.startsWith("WIN:")) {
                 char winner = res.charAt(4);
                 if (winner == myMark) {
-                    System.out.println("[CLIENT] Bravo, vous avez gagné !");
+                    msg = "Bravo, vous avez gagné !";
                 } else {
-                    System.out.println("[CLIENT] Vous avez perdu.");
+                    msg = "Vous avez perdu.";
                 }
             } else if (res.equals("DRAW")) {
-                System.out.println("[CLIENT] Match nul !");
+                msg = "Match nul !";
             } else {
-                System.out.println("[CLIENT] Partie terminée → " + res);
+                msg = "Partie terminée → " + res;
             }
-            ClientUI.render(board, '-');
+            ui.updateBoard(board, '-');
+            ui.showMessage(msg);
             System.exit(0);
         }
         else if (line.startsWith("ERROR:")) {
-            System.out.println("[CLIENT] Erreur : " + line.substring(6));
+            ui.showMessage("Erreur : " + line.substring(6));
         }
     }
 }
